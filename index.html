@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+    <meta name="applicable-device" content="pc">
+    <meta property="og:type" content="webpage">
+    <meta property="og:url" content="">
+    <meta property="og:title" content="">
+    <meta property="og:image" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    <title>刮刮乐</title>
+    <style type="text/css">
+    	*{
+    		margin: 0;
+    		padding: 0;
+    	}
+    	html{
+    		position: relative;
+    	}
+    	#myCanvas{
+    		margin: 0 auto;
+    		border: 1px solid #ccc;
+    		background: repeat;
+			background-size: 300px;
+			background-position: center;    		
+    	}
+    	.gua{
+    		position: absolute;
+    		left: 10px;
+    		top: 700px;
+    		text-align: center;
+    		font-size: 40px;
+    		color: #fff;
+    	}
+    </style>
+</head>
+<body>
+	<canvas id="myCanvas" width = 800 height = 800></canvas>
+	<div class="gua">
+		这是一个刮刮乐。刷新刮多2次会有惊喜
+	</div>
+	<script>
+		var oCanvas = document.getElementById("myCanvas");//取出来
+		var ctx = oCanvas.getContext("2d");//创建上下文对象
+		var h = oCanvas.height;//获取myCanvas的高度
+		var w = oCanvas.width;//获取myCanvas的宽度
+		var l = oCanvas.offsetLeft;//获取canvas的left的值
+		var t = oCanvas.offsetTop;//获取canvas的top的值
+		var lastX,lastY,nowX,nowY;//获取当前页面的鼠标的x,y,而不是canvas的xy，画画应该是基于canvas里面的位置
+		var p;//下方的p随机数是多少？图片的后缀有a1，a2的1，2，现在分别取到两张背景图
+		
+		ctx.fillStyle = '#fff';   // 文字填充颜色
+        ctx.font = '33px 微软雅黑';
+        ctx.fillText('怎么得到你想要的?',200,200);
+		
+		
+		//思路。canva里面添加一个背景图，然后再canvas上面画上一层遮罩层
+		init();
+		function init(){//还没做任何操作之前默认的样式
+			ctx.fillStyle = 'gray';//画出的颜色
+			ctx.fillRect(0,0,w,h);//填充整个canvas
+			//准备添加背景图片，两张图片随机，出现哪一张是不定的，一般一等奖二等奖是后台传的，随机的
+			
+			//合并操作。。。。。就是新旧像素重叠部分清除的关键
+			ctx.globalCompositeOperation = "destination-out";
+			
+			//随机调用两张图片
+			var r = Math.random();//创建一个随机数
+			r < 0.5 ? p = 1 : p = 2;//随机数是多少？图片的后缀有a1，a2的1，2，现在分别取到两张背景图
+			var img = new Image();
+			img.src = "resources/images/a" + p + ".gif";
+			//当img加载完成,就插入canvas中作为背景图
+			img.onload = function(){
+				oCanvas.style.backgroundImage = "url(" + img.src + ")";
+				
+				//开始做点击的过程
+				document.addEventListener("mousedown",downFu,false)//添加事件
+			}
+		}
+		
+		
+		function downFu(e){//鼠标落下的操作
+			//获得当前鼠标落下的当前位置的坐标
+			
+			lastX = e.clientX - l;//鼠标落下时作为lastX
+			lastY = e.clientY - t;
+			oCanvas.addEventListener("mousemove",moveFu,false)//在oCanvas上面移动
+			document.addEventListener("mouseup",upFun,false)//抬起鼠标
+			
+		}
+		
+		function moveFu(e){//在oCanvas上面移动,拖拽也需要获取当前鼠标移动的位置
+			nowX = e.clientX - l;
+			nowY = e.clientY - t;
+			//现在想要画的是一个清楚状态，鼠标落下的时候就开始画画，当画的时候是新像素，原来的遮罩是旧像素，就可以用新旧元素覆盖的属性，把覆盖的属性都擦除掉。
+			//可以开始画了，根据当前的canvas的xy开始画
+			ctx.beginPath();
+			ctx.fillStyle = "red";//开始画。在上面合并操作！！！！！！！！！！！！
+			ctx.lineWidth = 100;//线的粗细
+			ctx.lineCap = "round";//圆角线
+			//出现的是一个线段
+			ctx.moveTo(lastX,lastY);//从xy开始画
+			ctx.lineTo(nowX,nowY);//画到新的x1,y1
+			ctx.stroke();//开始画
+			
+			
+			//为了防止每次滑动出现断点。
+			lastX = nowX;
+			lastY = nowY;
+			//第一次触发，一移动又触发了几个点，每次将第一次触发的点作为上一个点的线段的起点，下一次触发的点作为下下一次触发的起点。当前的最后一点永远是一个lineTo的位置
+		}
+		function upFun(){//抬起鼠标
+			oCanvas.removeEventListener("mousemove",moveFu,false)//在oCanvas上面移动
+			document.removeEventListener("mouseup",upFun,false)//抬起鼠标
+			clearAll();
+		}
+		function clearAll(){//透明度为0 即可，canvas的70%就是像素点的70%
+			var d = ctx.getImageData(0,0,w,h); //获取canvas的所有信息点
+			var c = 0;
+			var len = d.data.length;
+			for(var i = 0; i < len; i += 4){//判断第四位是否等于0
+				if(d.data[i] === 0){//判断alpha值是否等于0
+					c ++;//计数
+				}
+			}
+			if(c > w*h*0.7){//如果画的信息大于canvas的70%
+				ctx.clearRect(0,0,w,h);//清除画的线
+				if(p==1){
+					alert("恭喜喜提canvas")
+					location.href = "https://www.baidu.com"
+				}
+				
+			}
+			
+		}
+	</script>
+</body>
+</html>
